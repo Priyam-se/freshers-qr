@@ -14,6 +14,8 @@ import {
   Search,
   Mail,
   Send,
+  Trash2,
+  RotateCcw,
   LogOut,
   Sparkles,
 } from "lucide-react";
@@ -141,6 +143,73 @@ export default function AdminDashboardPage() {
     }
   };
 
+  // Delete individual student
+  const handleDeleteStudent = async (rollNo: string, name: string) => {
+    if (!confirm(`Are you sure you want to delete ${name} (${rollNo}) from the database?`)) {
+      return;
+    }
+
+    setActionLoading(`${rollNo}-delete`);
+    try {
+      const res = await fetch(`/api/admin/delete-student?rollNo=${encodeURIComponent(rollNo)}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(data.message);
+        fetchStats();
+      } else {
+        toast.error(data.message);
+      }
+    } catch {
+      toast.error("Failed to delete student record");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Reset scan status only (rehearsal / retest)
+  const handleResetAllScans = async () => {
+    if (!confirm("Reset all scan statuses back to 0? (Students will remain registered, but entry/food scans will be cleared)")) {
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/admin/reset-scans", { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(data.message);
+        fetchStats();
+      } else {
+        toast.error(data.message);
+      }
+    } catch {
+      toast.error("Failed to reset scan data");
+    }
+  };
+
+  // Delete all students completely
+  const handleClearAllStudents = async () => {
+    const confirmation = prompt("Type DELETE to permanently remove ALL registered students:");
+    if (confirmation !== "DELETE") {
+      if (confirmation !== null) toast.error("Action cancelled. You must type DELETE to confirm.");
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/admin/delete-student?clearAll=true", { method: "DELETE" });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(data.message);
+        fetchStats();
+      } else {
+        toast.error(data.message);
+      }
+    } catch {
+      toast.error("Failed to clear database");
+    }
+  };
+
   const exportCSV = () => {
     if (students.length === 0) {
       toast.error("No students to export");
@@ -176,7 +245,7 @@ export default function AdminDashboardPage() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `cutm-freshers-attendance-${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute("download", `bca-freshers-attendance-${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -245,6 +314,25 @@ export default function AdminDashboardPage() {
               <KeyRound className="w-3.5 h-3.5" />
               <span>PINs</span>
             </Link>
+
+            {/* Quick Reset Tools */}
+            <button
+              onClick={handleResetAllScans}
+              className="px-3 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/20 text-xs font-semibold rounded-xl flex items-center space-x-1.5 transition"
+              title="Reset scan statuses only (for testing)"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Reset Scans</span>
+            </button>
+
+            <button
+              onClick={handleClearAllStudents}
+              className="px-3 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 text-xs font-semibold rounded-xl flex items-center space-x-1.5 transition"
+              title="Delete all registered students"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Clear All</span>
+            </button>
 
             <button
               onClick={handleLogout}
@@ -509,6 +597,16 @@ export default function AdminDashboardPage() {
                             title="Resend QR Pass Email"
                           >
                             <Send className="w-3.5 h-3.5" />
+                          </button>
+
+                          {/* Delete Student */}
+                          <button
+                            onClick={() => handleDeleteStudent(student.rollNo, student.name)}
+                            disabled={actionLoading === `${student.rollNo}-delete`}
+                            className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 transition"
+                            title="Delete this student"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </td>
